@@ -1,0 +1,24 @@
+# Deutsche Bahn Verbindungsüberwachung Crontab
+# 4x täglich ausführen: 6:00, 12:00, 18:00, 00:00
+
+# Variablen
+PROJECT_DIR=/opt/bahnabfrage
+PYTHON_BIN=/opt/bahnabfrage/venv/bin/python
+MAIN_SCRIPT=/opt/bahnabfrage/src/main.py
+
+# Cron-Jobs (4x täglich)
+0 6 * * * $PYTHON_BIN $MAIN_SCRIPT --run >> /var/log/bahnabfrage/cron.log 2>&1
+0 12 * * * $PYTHON_BIN $MAIN_SCRIPT --run >> /var/log/bahnabfrage/cron.log 2>&1
+0 18 * * * $PYTHON_BIN $MAIN_SCRIPT --run >> /var/log/bahnabfrage/cron.log 2>&1
+0 0 * * * $PYTHON_BIN $MAIN_SCRIPT --run >> /var/log/bahnabfrage/cron.log 2>&1
+
+# Wöchentlicher Status-Report (Sonntags 19:00)
+0 19 * * 0 $PYTHON_BIN $MAIN_SCRIPT --test >> /var/log/bahnabfrage/weekly.log 2>&1
+
+# Installation:
+# 1. Als bahnmonitor User: crontab -e
+# 2. Inhalt dieser Datei einfügen
+# 3. Speichern und beenden
+#
+# Oder direkt:
+# sudo -u bahnmonitor crontab /opt/bahnabfrage/config/crontab.example

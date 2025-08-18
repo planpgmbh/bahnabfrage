@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  bahnabfrage:
+    build: .
+    container_name: bahnabfrage
+    restart: unless-stopped
+    
+    # Umgebungsvariablen aus .env Datei
+    env_file:
+      - .env
+    
+    # Volumes für persistente Logs
+    volumes:
+      - ./logs:/var/log/bahnabfrage
+      - /etc/localtime:/etc/localtime:ro  # Timezone sync
+    
+    # Health Check
+    healthcheck:
+      test: ["CMD", "python", "src/main.py", "--test-telegram"]
+      interval: 6h
+      timeout: 30s
+      retries: 3
+      start_period: 1m
+    
+    # Traefik Labels (optional - nur für Web-Interface)
+    labels:
+      - "traefik.enable=false"  # Kein Web-Interface nötig
+      
+    # Networks
+    networks:
+      - bahnabfrage
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  bahnabfrage:
+    driver: bridge
