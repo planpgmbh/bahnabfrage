@@ -38,9 +38,9 @@ RUN useradd -r -s /bin/bash bahnmonitor
 RUN chown -R bahnmonitor:bahnmonitor /app /var/log/bahnabfrage
 USER bahnmonitor
 
-# Health Check
+# Health Check (nur Konfiguration prüfen, keine Nachrichten)
 HEALTHCHECK --interval=6h --timeout=30s --start-period=1m \
-    CMD python src/main.py --test-telegram || exit 1
+    CMD python src/config.py || exit 1
 
 # Port für Health-Check (optional)
 EXPOSE 8080

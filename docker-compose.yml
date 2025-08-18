@@ -15,9 +15,9 @@ services:
       - ./logs:/var/log/bahnabfrage
       - /etc/localtime:/etc/localtime:ro  # Timezone sync
     
-    # Health Check
+    # Health Check (nur Konfiguration testen, keine Nachrichten senden)
     healthcheck:
-      test: ["CMD", "python", "src/main.py", "--test-telegram"]
+      test: ["CMD", "python", "src/config.py"]
       interval: 6h
       timeout: 30s
       retries: 3
