@@ -33,10 +33,10 @@ RUN crontab /etc/cron.d/bahnabfrage
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Non-root User
+# Non-root User (aber Container startet als Root für Cron)
 RUN useradd -r -s /bin/bash bahnmonitor
 RUN chown -R bahnmonitor:bahnmonitor /app /var/log/bahnabfrage
-USER bahnmonitor
+# USER bahnmonitor  # Entfernt - Container startet als Root für Cron
 
 # Health Check (nur Konfiguration prüfen, keine Nachrichten)
 HEALTHCHECK --interval=6h --timeout=30s --start-period=1m \
