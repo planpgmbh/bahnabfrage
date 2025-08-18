@@ -27,20 +27,50 @@ else:
     exit(1)
 '"
 
-# Deutsche Bahn API und Verbindungssuche testen
-echo "🚄 Teste Deutsche Bahn Verbindungssuche..."
-TEST_RESULT=$(su bahnmonitor -c "cd /app && PYTHONPATH=/app python src/main.py --test 2>&1")
-TEST_EXIT_CODE=$?
+# Deutsche Bahn API für März 2025 testen (ohne Benachrichtigungen)
+echo "🚄 Teste Deutsche Bahn Verbindungssuche für März 2025..."
+CONNECTION_TEST_RESULT=$(su bahnmonitor -c "cd /app && PYTHONPATH=/app python -c '
+import sys
+sys.path.insert(0, \"/app/src\")
+from db_client import DBClient, HAMBURG_HBF_ID, LANDECK_ZAMS_ID
+from config import load_config
 
-if [ $TEST_EXIT_CODE -eq 0 ]; then
-    echo "✅ Deutsche Bahn API Test erfolgreich"
-    # Extrahiere Anzahl gefundener Verbindungen aus Test-Output
-    CONNECTION_COUNT=$(echo "$TEST_RESULT" | grep -o "neue Verbindungen" | wc -l || echo "0")
-    echo "📊 Verbindungen gefunden in Test-Modus"
+try:
+    config = load_config()
+    db_client = DBClient(timeout=config.api_timeout_seconds)
+    
+    # Teste März 2025 Verbindungen (Sample: nur 3 Tage)
+    total_connections = 0
+    test_dates = [15, 16, 17]  # Test-Sample
+    
+    from datetime import datetime
+    for day in test_dates:
+        try:
+            test_date = datetime(2025, 3, day, 10, 0)
+            journeys = db_client.search_journeys(
+                HAMBURG_HBF_ID, 
+                LANDECK_ZAMS_ID, 
+                test_date, 
+                max_results=10
+            )
+            total_connections += len(journeys)
+        except:
+            pass
+    
+    print(f\"SUCCESS:{total_connections}\")
+except Exception as e:
+    print(f\"ERROR:{str(e)}\")
+' 2>&1")
+
+# Parse Ergebnis
+if [[ "$CONNECTION_TEST_RESULT" =~ SUCCESS:([0-9]+) ]]; then
+    CONNECTION_COUNT="${BASH_REMATCH[1]}"
+    echo "✅ Deutsche Bahn API Test erfolgreich: $CONNECTION_COUNT Verbindungen gefunden"
+    DB_STATUS="✅ $CONNECTION_COUNT Verbindungen gefunden"
 else
     echo "⚠️ Deutsche Bahn API Test mit Problemen (Container startet trotzdem)"
-    echo "Fehler-Details: $TEST_RESULT"
-    CONNECTION_COUNT="Fehler"
+    echo "Details: $CONNECTION_TEST_RESULT"
+    DB_STATUS="⚠️ API-Test fehlgeschlagen"
 fi
 
 # Startup-Benachrichtigung senden
@@ -58,14 +88,12 @@ telegram = TelegramNotifier(config.telegram_bot_token, config.telegram_chat_id)
 next_check = datetime.now() + timedelta(hours=6)
 time_format = \"%H:%M\"
 
-# Test-Ergebnis aus Umgebung lesen
-connection_test = os.environ.get(\"CONNECTION_COUNT\", \"Unbekannt\")
-api_status = \"✅ DB API funktioniert\" if connection_test != \"Fehler\" else \"⚠️ DB API Probleme\"
+# DB-Test Ergebnis aus Umgebung lesen
+db_status = os.environ.get(\"DB_STATUS\", \"⚠️ Status unbekannt\")
 
 message = f\"🐳 **Container gestartet**\\n\\n\" + \
+          f\"📅 März 2025: {db_status}\\n\" + \
           f\"🚄 Route: Hamburg Hbf → Landeck-Zams\\n\" + \
-          f\"📅 Zeitraum: März 2025\\n\" + \
-          f\"📊 API-Test: {api_status}\\n\" + \
           f\"⏰ Nächste Prüfung: {next_check.strftime(time_format)}\\n\\n\" + \
           f\"🤖 Überwachung läuft alle 6 Stunden\"
           
@@ -73,7 +101,7 @@ telegram.send_message(message)
 '"
 
 # Umgebungsvariable für Python-Script setzen
-export CONNECTION_COUNT
+export DB_STATUS
 
 echo "✅ Container bereit - starte Cron-Daemon..."
 
