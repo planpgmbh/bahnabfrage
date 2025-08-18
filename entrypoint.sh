@@ -40,7 +40,8 @@ from datetime import datetime, timedelta
 config = load_config()
 telegram = TelegramNotifier(config.telegram_bot_token, config.telegram_chat_id)
 next_check = datetime.now() + timedelta(hours=6)
-telegram.send_message(f\"🐳 **Container gestartet**\n\nBahnverbindungsüberwachung läuft jetzt in Docker!\n\n⏰ Nächste Prüfung: {next_check.strftime(\\\"%H:%M\\\")}\")
+time_format = \"%H:%M\"
+telegram.send_message(f\"🐳 **Container gestartet**\\n\\nBahnverbindungsüberwachung läuft jetzt in Docker!\\n\\n⏰ Nächste Prüfung: {next_check.strftime(time_format)}\")
 '"
 
 echo "✅ Container bereit - starte Cron-Daemon..."
