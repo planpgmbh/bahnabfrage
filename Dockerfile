@@ -24,23 +24,21 @@ COPY config/ ./config/
 # Logs-Verzeichnis
 RUN mkdir -p /var/log/bahnabfrage
 
-# Cron-Job Setup
+# Cron-Job Setup - vor User-Switch
 COPY crontab /etc/cron.d/bahnabfrage
 RUN chmod 0644 /etc/cron.d/bahnabfrage
-RUN crontab /etc/cron.d/bahnabfrage
 
 # Entrypoint Script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Non-root User (aber Container startet als Root für Cron)
-RUN useradd -r -s /bin/bash bahnmonitor
+# Non-root User für bessere Sicherheit
+RUN useradd -r -s /bin/bash bahnmonitor -d /app
 RUN chown -R bahnmonitor:bahnmonitor /app /var/log/bahnabfrage
-# USER bahnmonitor  # Entfernt - Container startet als Root für Cron
 
 # Health Check (nur Konfiguration prüfen, keine Nachrichten)
 HEALTHCHECK --interval=6h --timeout=30s --start-period=1m \
-    CMD python src/config.py || exit 1
+    CMD su bahnmonitor -c "cd /app && python src/config.py" || exit 1
 
 # Port für Health-Check (optional)
 EXPOSE 8080

@@ -5,7 +5,14 @@ set -e
 echo "🚀 Starte Deutsche Bahn Verbindungsüberwachung Container"
 echo "=============================================="
 
-# Als Root laufend - alle Setup-Tasks als bahnmonitor User ausführen
+# Container läuft als Root - Setup für bahnmonitor User
+# Stelle sicher, dass bahnmonitor User Zugriff auf cron hat
+chown bahnmonitor:bahnmonitor /var/log/bahnabfrage
+
+# Installiere Crontab für bahnmonitor User
+crontab -u bahnmonitor /etc/cron.d/bahnabfrage
+echo "✅ Crontab für bahnmonitor User installiert"
+
 # Konfiguration prüfen
 echo "🔧 Prüfe Konfiguration..."
 su bahnmonitor -c "cd /app && python src/config.py"
@@ -66,11 +73,15 @@ except Exception as e:
 if [[ "$CONNECTION_TEST_RESULT" =~ SUCCESS:([0-9]+) ]]; then
     CONNECTION_COUNT="${BASH_REMATCH[1]}"
     echo "✅ Deutsche Bahn API Test erfolgreich: $CONNECTION_COUNT Verbindungen gefunden"
-    DB_STATUS="✅ $CONNECTION_COUNT Verbindungen gefunden"
+    if [ "$CONNECTION_COUNT" -gt 0 ]; then
+        DB_STATUS="✅ $CONNECTION_COUNT Verbindungen verfügbar"
+    else
+        DB_STATUS="⚠️ API erreichbar, aber keine Verbindungen gefunden"
+    fi
 else
     echo "⚠️ Deutsche Bahn API Test mit Problemen (Container startet trotzdem)"
     echo "Details: $CONNECTION_TEST_RESULT"
-    DB_STATUS="⚠️ API-Test fehlgeschlagen"
+    DB_STATUS="❌ API-Test fehlgeschlagen"
 fi
 
 # Startup-Benachrichtigung senden
@@ -104,6 +115,13 @@ telegram.send_message(message)
 export DB_STATUS
 
 echo "✅ Container bereit - starte Cron-Daemon..."
+
+# Zeige installierte Cron-Jobs
+echo "🕐 Installierte Cron-Jobs:"
+crontab -u bahnmonitor -l
+
+# Erstelle Debug-Log-Eintrag
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Container gestartet - Cron-Daemon wird gestartet" >> /var/log/bahnabfrage/cron.log
 
 # Cron-Daemon im Vordergrund starten
 exec "$@"

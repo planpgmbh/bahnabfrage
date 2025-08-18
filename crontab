@@ -1,14 +1,15 @@
 # Deutsche Bahn Verbindungsüberwachung - Docker Cron
 # Läuft alle 6 Stunden: 6:00, 12:00, 18:00, 00:00
 
-# Umgebungsvariablen für Cron
+# Umgebungsvariablen für Cron - Essential für Container
+SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 PYTHONPATH=/app
 
-# Cron-Jobs (4x täglich) - als bahnmonitor User ausführen
-0 6 * * * su bahnmonitor -c "cd /app && PYTHONPATH=/app python src/main.py --run" >> /var/log/bahnabfrage/cron.log 2>&1
-0 12 * * * su bahnmonitor -c "cd /app && PYTHONPATH=/app python src/main.py --run" >> /var/log/bahnabfrage/cron.log 2>&1
-0 18 * * * su bahnmonitor -c "cd /app && PYTHONPATH=/app python src/main.py --run" >> /var/log/bahnabfrage/cron.log 2>&1
-0 0 * * * su bahnmonitor -c "cd /app && PYTHONPATH=/app python src/main.py --run" >> /var/log/bahnabfrage/cron.log 2>&1
+# Cron-Jobs (4x täglich) - mit verbessertem Logging
+0 6 * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 06:00 Cron Job gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
+0 12 * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 12:00 Cron Job gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
+0 18 * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 18:00 Cron Job gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
+0 0 * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 00:00 Cron Job gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
 
 # Leere Zeile am Ende (wichtig für Cron)
