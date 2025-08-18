@@ -86,7 +86,7 @@ fi
 
 # Startup-Benachrichtigung senden
 echo "📢 Sende Startup-Benachrichtigung..."
-su bahnmonitor -c "cd /app && PYTHONPATH=/app python -c '
+su bahnmonitor -c "cd /app && DB_STATUS='$DB_STATUS' PYTHONPATH=/app python -c '
 import sys
 sys.path.insert(0, \"/app/src\")
 from telegram_notifier import TelegramNotifier
