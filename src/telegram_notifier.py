@@ -7,7 +7,7 @@ Produktionsversion - optimiert für zuverlässige Nachrichten
 
 import requests
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 from db_client import Journey
 
@@ -75,28 +75,28 @@ class TelegramNotifier:
             self.logger.error(f"Telegram Test Exception: {str(e)}")
             return False
     
-    def notify_new_connections(self, 
-                             new_connections: List[Journey], 
-                             date: str,
-                             from_station: str = "Hamburg Hbf",
-                             to_station: str = "Landeck-Zams") -> bool:
-        """Benachrichtige über neue Verbindungen"""
+    def notify_connections(self, 
+                         connections: List[Journey], 
+                         date: str,
+                         from_station: str = "Hamburg Hbf",
+                         to_station: str = "Landeck-Zams") -> bool:
+        """Benachrichtige über gefundene Verbindungen"""
         
-        if not new_connections:
+        if not connections:
             return True
         
         # Header
-        count = len(new_connections)
+        count = len(connections)
         plural = "en" if count != 1 else ""
         message_lines = [
-            f"🚄 *Neue Verbindung{plural} verfügbar!*",
+            f"🚄 *Verbindung{plural} gefunden*",
             f"📅 *Datum:* {date}",
             f"🚉 *Route:* {from_station} → {to_station}",
             "",
         ]
         
         # Verbindungen auflisten
-        for i, journey in enumerate(new_connections, 1):
+        for i, journey in enumerate(connections, 1):
             dep_time = journey.departure_time.strftime("%H:%M")
             arr_time = journey.arrival_time.strftime("%H:%M")
             duration_hours = journey.duration_minutes // 60
@@ -111,9 +111,101 @@ class TelegramNotifier:
         
         # Footer
         message_lines.extend([
-            f"⏰ *Gefunden am:* {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            f"⏰ *Abfrage vom:* {datetime.now().strftime('%d.%m.%Y %H:%M')}",
             "",
-            "🤖 _Automatische Überwachung Hamburg → Landeck-Zams_"
+            "🤖 _Automatische Verbindungssuche Hamburg → Landeck-Zams_"
+        ])
+        
+        message = "\n".join(message_lines)
+        return self.send_message(message)
+    
+    def notify_single_day_connections(self, 
+                                    connections: List[Journey], 
+                                    date: str,
+                                    from_station: str = "Hamburg Hbf",
+                                    to_station: str = "Landeck-Zams") -> bool:
+        """Benachrichtige über Verbindungen für einen einzelnen Tag"""
+        
+        if not connections:
+            return True
+        
+        # Header
+        count = len(connections)
+        plural = "en" if count != 1 else ""
+        message_lines = [
+            f"🚄 *{count} Verbindung{plural} am {date}*",
+            f"🚉 *Route:* {from_station} → {to_station}",
+            "",
+        ]
+        
+        # Verbindungen auflisten
+        for i, journey in enumerate(connections, 1):
+            dep_time = journey.departure_time.strftime("%H:%M")
+            arr_time = journey.arrival_time.strftime("%H:%M")
+            duration_hours = journey.duration_minutes // 60
+            duration_mins = journey.duration_minutes % 60
+            duration_str = f"{duration_hours}h {duration_mins:02d}m"
+            
+            transfers_text = "Direktverbindung" if journey.transfers == 0 else f"{journey.transfers} Umstieg{'e' if journey.transfers > 1 else ''}"
+            
+            message_lines.append(f"**{i}.** {dep_time} → {arr_time}")
+            message_lines.append(f"   _{duration_str}, {transfers_text}_")
+            message_lines.append("")
+        
+        # Footer
+        message_lines.extend([
+            f"⏰ *Abfrage vom:* {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            "",
+            "🤖 _Automatische Verbindungssuche Hamburg → Landeck-Zams_"
+        ])
+        
+        message = "\n".join(message_lines)
+        return self.send_message(message)
+    
+    def notify_all_connections(self, 
+                             connections_by_date: Dict[str, List[Journey]],
+                             from_station: str = "Hamburg Hbf",
+                             to_station: str = "Landeck-Zams") -> bool:
+        """Benachrichtige über alle gefundenen Verbindungen (alle Tage zusammen)"""
+        
+        if not connections_by_date:
+            return True
+        
+        # Berechne Gesamtzahl
+        total_connections = sum(len(journeys) for journeys in connections_by_date.values())
+        total_days = len(connections_by_date)
+        
+        # Header
+        message_lines = [
+            f"🚄 *Verbindungen März 2025*",
+            f"🚉 *Route:* {from_station} → {to_station}",
+            f"📊 *{total_connections} Verbindungen an {total_days} Tagen*",
+            "",
+        ]
+        
+        # Pro Tag auflisten
+        for date_str in sorted(connections_by_date.keys()):
+            journeys = connections_by_date[date_str]
+            message_lines.append(f"📅 **{date_str}** ({len(journeys)} Verbindungen):")
+            
+            for journey in journeys:
+                dep_time = journey.departure_time.strftime("%H:%M")
+                arr_time = journey.arrival_time.strftime("%H:%M")
+                duration_hours = journey.duration_minutes // 60
+                duration_mins = journey.duration_minutes % 60
+                duration_str = f"{duration_hours}h {duration_mins:02d}m"
+                
+                transfers_text = "Direktverbindung" if journey.transfers == 0 else f"{journey.transfers} Umstieg{'e' if journey.transfers > 1 else ''}"
+                
+                message_lines.append(f"   • {dep_time} → {arr_time} ({duration_str}, {transfers_text})")
+            
+            message_lines.append("")  # Leerzeile nach jedem Tag
+        
+        # Footer
+        message_lines.extend([
+            f"⏰ *Abfrage vom:* {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            "",
+            "🤖 _Automatische Verbindungssuche Hamburg → Landeck-Zams_"
         ])
         
         message = "\n".join(message_lines)
@@ -122,7 +214,7 @@ class TelegramNotifier:
     def notify_error(self, error_message: str, context: str = "") -> bool:
         """Benachrichtige über Fehler"""
         message_lines = [
-            "⚠️ *Fehler bei Verbindungsüberwachung*",
+            "⚠️ *Fehler bei Verbindungssuche*",
             "",
             f"*Fehler:* {error_message}",
         ]
@@ -142,26 +234,23 @@ class TelegramNotifier:
     
     def notify_status(self, 
                      checked_dates: int, 
-                     total_connections: int,
-                     new_connections: int = 0) -> bool:
+                     total_connections: int) -> bool:
         """Sende Status-Update"""
         message_lines = [
-            "📊 *Verbindungsüberwachung Status*",
+            "📊 *Verbindungssuche Status*",
             "",
             f"📅 *Geprüfte Tage:* {checked_dates}",
             f"🚄 *Gefundene Verbindungen:* {total_connections}",
         ]
         
-        if new_connections > 0:
-            message_lines.append(f"✨ *Neue Verbindungen:* {new_connections}")
-        else:
-            message_lines.append("✅ *Keine neuen Verbindungen*")
+        if total_connections == 0:
+            message_lines.append("⚠️ *Keine Verbindungen verfügbar*")
         
         message_lines.extend([
             "",
             f"⏰ *Letzter Check:* {datetime.now().strftime('%d.%m.%Y %H:%M')}",
             "",
-            "🤖 _Automatische Überwachung Hamburg → Landeck-Zams_"
+            "🤖 _Automatische Verbindungssuche Hamburg → Landeck-Zams_"
         ])
         
         message = "\n".join(message_lines)
@@ -170,7 +259,7 @@ class TelegramNotifier:
     def notify_startup(self) -> bool:
         """Benachrichtige über Anwendungsstart"""
         message_lines = [
-            "🚀 *Verbindungsüberwachung gestartet*",
+            "🚀 *Verbindungssuche gestartet*",
             "",
             "🚉 *Route:* Hamburg Hbf → Landeck-Zams",
             "📅 *Zeitraum:* März 2025",
@@ -178,7 +267,7 @@ class TelegramNotifier:
             "",
             f"*Gestartet:* {datetime.now().strftime('%d.%m.%Y %H:%M')}",
             "",
-            "🔍 _Überwachung läuft..._"
+            "🔍 _Verbindungssuche läuft..._"
         ]
         
         message = "\n".join(message_lines)

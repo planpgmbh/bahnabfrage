@@ -7,7 +7,7 @@ Hauptanwendung für automatische Überwachung Hamburg Hbf → Landeck-Zams
 import sys
 import logging
 import argparse
-from datetime import datetime
+# datetime import nicht mehr benötigt
 
 from config import load_config
 from db_client import DBClient
@@ -94,7 +94,7 @@ def run_application(config, test_mode: bool = False) -> bool:
         # Komponenten initialisieren
         db_client = DBClient(timeout=config.api_timeout_seconds)
         telegram = TelegramNotifier(config.telegram_bot_token, config.telegram_chat_id)
-        monitor = ConnectionMonitor(db_client, telegram)
+        monitor = ConnectionMonitor(db_client, telegram, config)
         
         logger.info("🚀 Starte Deutsche Bahn Verbindungsüberwachung")
         logger.info(f"Route: {config.departure_station} → {config.destination_station}")
@@ -114,7 +114,7 @@ def run_application(config, test_mode: bool = False) -> bool:
         summary = monitor.get_session_summary()
         logger.info(f"Session abgeschlossen: {summary['runtime_formatted']} Laufzeit")
         logger.info(f"Statistik: {summary['dates_checked']} Tage, {summary['total_api_calls']} API calls")
-        logger.info(f"Gefunden: {summary['connections_found']} Verbindungen, {summary['new_connections_found']} neu")
+        logger.info(f"Gefunden: {summary['connections_found']} Verbindungen")
         
         if summary['errors']:
             logger.warning(f"Fehler aufgetreten: {len(summary['errors'])}")

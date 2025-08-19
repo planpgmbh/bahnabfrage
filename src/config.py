@@ -32,6 +32,7 @@ class Config:
         self.departure_station = os.getenv("DEPARTURE_STATION", "Hamburg Hbf")
         self.destination_station = os.getenv("DESTINATION_STATION", "Landeck-Zams")
         self.target_month = os.getenv("TARGET_MONTH", "2025-03")
+        self.target_day = int(os.getenv("TARGET_DAY", "15"))  # Einzelner Tag für die Suche
         
         # API Konfiguration
         self.api_timeout_seconds = int(os.getenv("API_TIMEOUT_SECONDS", "30"))
@@ -46,10 +47,8 @@ class Config:
         self.check_start_hour = int(os.getenv("CHECK_START_HOUR", "8"))
         self.check_end_hour = int(os.getenv("CHECK_END_HOUR", "20"))
         
-        # Test Modus
+        # Test Modus (verwendet jetzt auch target_day)
         self.test_mode = os.getenv("TEST_MODE", "false").lower() == "true"
-        self.test_start_day = int(os.getenv("TEST_START_DAY", "15"))
-        self.test_end_day = int(os.getenv("TEST_END_DAY", "17"))
     
     def validate(self) -> bool:
         """Validiere Konfiguration"""
@@ -73,16 +72,9 @@ class Config:
         if not (0 <= self.check_end_hour <= 23):
             errors.append("CHECK_END_HOUR muss zwischen 0 und 23 liegen")
         
-        # Test-Modus Validierung
-        if self.test_mode:
-            if not (1 <= self.test_start_day <= 31):
-                errors.append("TEST_START_DAY muss zwischen 1 und 31 liegen")
-            
-            if not (1 <= self.test_end_day <= 31):
-                errors.append("TEST_END_DAY muss zwischen 1 und 31 liegen")
-            
-            if self.test_start_day > self.test_end_day:
-                errors.append("TEST_START_DAY darf nicht größer als TEST_END_DAY sein")
+        # Target Day Validierung
+        if not (1 <= self.target_day <= 31):
+            errors.append("TARGET_DAY muss zwischen 1 und 31 liegen")
         
         if errors:
             for error in errors:
@@ -125,10 +117,8 @@ class Config:
         print("🔧 Konfiguration geladen:")
         print(f"   Route: {self.departure_station} → {self.destination_station}")
         print(f"   Zeitraum: {self.target_month}")
+        print(f"   Zieltag: {self.target_day}. März 2025")
         print(f"   Test-Modus: {'✅ Aktiviert' if self.test_mode else '❌ Deaktiviert'}")
-        
-        if self.test_mode:
-            print(f"   Test-Tage: {self.test_start_day}-{self.test_end_day}")
         
         print(f"   Telegram Bot: {'✅ Konfiguriert' if self.telegram_bot_token else '❌ Fehlt'}")
         print(f"   Log Level: {self.log_level}")
@@ -160,6 +150,7 @@ TELEGRAM_CHAT_ID=your_chat_id_here
 DEPARTURE_STATION=Hamburg Hbf
 DESTINATION_STATION=Landeck-Zams
 TARGET_MONTH=2025-03
+TARGET_DAY=15
 
 # API Einstellungen
 API_TIMEOUT_SECONDS=30
@@ -176,8 +167,6 @@ LOG_FILE_PATH=bahnabfrage.log
 
 # Test-Modus (für Entwicklung)
 TEST_MODE=false
-TEST_START_DAY=15
-TEST_END_DAY=17
 """
     
     if not os.path.exists(".env"):

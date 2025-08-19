@@ -6,68 +6,32 @@ Connection Monitor
 
 import logging
 from datetime import datetime, timedelta
-from typing import Set, List, Dict, Any
-from dataclasses import dataclass
-import hashlib
-import json
+from typing import List, Dict, Any
 
 from db_client import DBClient, Journey, HAMBURG_HBF_ID, LANDECK_ZAMS_ID
 from telegram_notifier import TelegramNotifier
 
-@dataclass
-class ConnectionSignature:
-    """Eindeutige Signatur einer Verbindung für Duplikatserkennung"""
-    date: str
-    departure_time: str
-    arrival_time: str
-    transfers: int
-    duration_minutes: int
-    
-    def to_hash(self) -> str:
-        """Erstelle Hash für diese Verbindung"""
-        content = f"{self.date}-{self.departure_time}-{self.arrival_time}-{self.transfers}-{self.duration_minutes}"
-        return hashlib.md5(content.encode()).hexdigest()
+# ConnectionSignature entfernt - keine Duplikatserkennung mehr nötig
 
 class ConnectionMonitor:
     """Hauptlogik für die Verbindungsüberwachung"""
     
-    def __init__(self, db_client: DBClient, telegram_notifier: TelegramNotifier):
+    def __init__(self, db_client: DBClient, telegram_notifier: TelegramNotifier, config):
         self.db_client = db_client
         self.telegram = telegram_notifier
+        self.config = config
         self.logger = logging.getLogger(__name__)
         
-        # Session-basierte Duplikatsvermeidung (kein persistenter Speicher)
-        self.known_connections: Set[str] = set()
-        
-        # Statistiken für diese Session
+        # Statistiken für diese Session (vereinfacht)
         self.session_stats = {
             "start_time": datetime.now(),
             "total_api_calls": 0,
             "dates_checked": 0,
             "connections_found": 0,
-            "new_connections_found": 0,
             "errors": []
         }
     
-    def create_connection_signature(self, journey: Journey, date: str) -> ConnectionSignature:
-        """Erstelle eindeutige Signatur für eine Verbindung"""
-        return ConnectionSignature(
-            date=date,
-            departure_time=journey.departure_time.strftime("%H:%M"),
-            arrival_time=journey.arrival_time.strftime("%H:%M"),
-            transfers=journey.transfers,
-            duration_minutes=journey.duration_minutes
-        )
-    
-    def is_connection_known(self, signature: ConnectionSignature) -> bool:
-        """Prüfe ob Verbindung bereits bekannt ist (in dieser Session)"""
-        hash_value = signature.to_hash()
-        return hash_value in self.known_connections
-    
-    def add_known_connection(self, signature: ConnectionSignature):
-        """Füge Verbindung zu bekannten Verbindungen hinzu"""
-        hash_value = signature.to_hash()
-        self.known_connections.add(hash_value)
+    # Duplikats-Erkennungs-Methoden entfernt - zeige immer alle Verbindungen
     
     def check_single_date(self, target_date: datetime) -> List[Journey]:
         """Prüfe Verbindungen für ein bestimmtes Datum"""
@@ -100,78 +64,50 @@ class ConnectionMonitor:
             self.session_stats["errors"].append(error_msg)
             return []
     
-    def filter_new_connections(self, journeys: List[Journey], date_str: str) -> List[Journey]:
-        """Filtere neue Verbindungen (noch nicht in dieser Session gesehen)"""
-        new_connections = []
-        
-        for journey in journeys:
-            signature = self.create_connection_signature(journey, date_str)
-            
-            if not self.is_connection_known(signature):
-                new_connections.append(journey)
-                self.add_known_connection(signature)
-                self.logger.debug(f"Neue Verbindung: {signature.departure_time} → {signature.arrival_time}")
-            else:
-                self.logger.debug(f"Bekannte Verbindung: {signature.departure_time} → {signature.arrival_time}")
-        
-        return new_connections
+    # filter_new_connections entfernt - verwende immer alle gefundenen Verbindungen
     
-    def check_march_2025_connections(self, 
-                                   start_day: int = 1, 
-                                   end_day: int = 31,
-                                   start_hour: int = 8) -> Dict[str, List[Journey]]:
-        """Prüfe Verbindungen für März 2025"""
-        self.logger.info(f"Starte Überwachung März 2025 (Tag {start_day}-{end_day})")
+    def check_target_day_connections(self, target_day: int, start_hour: int = 8) -> List[Journey]:
+        """Prüfe Verbindungen für einen einzelnen Tag im März 2025"""
+        self.logger.info(f"Starte Verbindungssuche für {target_day}. März 2025")
         
-        new_connections_by_date = {}
-        total_new_connections = 0
-        
-        for day in range(start_day, end_day + 1):
-            try:
-                # Prüfe ob Tag im März 2025 existiert
-                target_date = datetime(2025, 3, day, start_hour, 0)
+        try:
+            # Erstelle Zieldatum
+            target_date = datetime(2025, 3, target_day, start_hour, 0)
+            
+            # Prüfe Verbindungen für diesen Tag
+            journeys = self.check_single_date(target_date)
+            
+            if journeys:
+                date_str = target_date.strftime("%Y-%m-%d")
+                self.logger.info(f"📅 {len(journeys)} Verbindungen gefunden für {date_str}")
                 
-                # Prüfe Verbindungen für diesen Tag
-                journeys = self.check_single_date(target_date)
-                
-                if journeys:
-                    date_str = target_date.strftime("%Y-%m-%d")
-                    new_journeys = self.filter_new_connections(journeys, date_str)
-                    
-                    if new_journeys:
-                        new_connections_by_date[date_str] = new_journeys
-                        total_new_connections += len(new_journeys)
-                        
-                        self.logger.info(f"✨ {len(new_journeys)} neue Verbindungen für {date_str}")
-                        
-                        # Sofort Telegram-Benachrichtigung senden
-                        self.telegram.notify_new_connections(
-                            new_journeys, 
-                            date_str,
-                            "Hamburg Hbf",
-                            "Landeck-Zams"
-                        )
-                    else:
-                        self.logger.info(f"Keine neuen Verbindungen für {date_str}")
-                
-            except ValueError as e:
-                # Tag existiert nicht (z.B. 32. März)
-                self.logger.warning(f"Ungültiger Tag: {day}. März 2025 - {str(e)}")
-                continue
-            except Exception as e:
-                error_msg = f"Fehler bei Tag {day}: {str(e)}"
-                self.logger.error(error_msg)
-                self.session_stats["errors"].append(error_msg)
-                continue
-        
-        # Update Session Stats
-        self.session_stats["new_connections_found"] = total_new_connections
-        
-        return new_connections_by_date
+                # Sende Telegram-Benachrichtigung für diesen einen Tag
+                self.telegram.notify_single_day_connections(
+                    journeys,
+                    date_str,
+                    "Hamburg Hbf",
+                    "Landeck-Zams"
+                )
+            else:
+                self.logger.info(f"Keine Verbindungen für {target_day}. März 2025")
+            
+            return journeys
+            
+        except ValueError as e:
+            # Tag existiert nicht (z.B. 32. März)
+            error_msg = f"Ungültiger Tag: {target_day}. März 2025 - {str(e)}"
+            self.logger.error(error_msg)
+            self.session_stats["errors"].append(error_msg)
+            return []
+        except Exception as e:
+            error_msg = f"Fehler bei Tag {target_day}: {str(e)}"
+            self.logger.error(error_msg)
+            self.session_stats["errors"].append(error_msg)
+            return []
     
     def run_daily_check(self) -> bool:
         """Führe tägliche Überprüfung durch (4x täglich ausgeführt)"""
-        self.logger.info("🚀 Starte tägliche Verbindungsüberwachung")
+        self.logger.info("🚀 Starte tägliche Verbindungssuche")
         
         try:
             # Teste Telegram-Verbindung
@@ -179,23 +115,17 @@ class ConnectionMonitor:
                 self.logger.error("Telegram-Verbindung fehlgeschlagen")
                 return False
             
-            # Prüfe März 2025 Verbindungen
-            new_connections = self.check_march_2025_connections()
+            # Prüfe konfigurierten Zieltag
+            connections = self.check_target_day_connections(self.config.target_day)
             
-            # Gesamtstatistik
-            total_new = sum(len(journeys) for journeys in new_connections.values())
-            
-            if total_new > 0:
-                self.logger.info(f"✨ {total_new} neue Verbindungen gefunden!")
+            if len(connections) > 0:
+                self.logger.info(f"📊 {len(connections)} Verbindungen gefunden")
             else:
-                self.logger.info("Keine neuen Verbindungen gefunden")
-            
-            # Status-Update senden (nur wenn keine neuen Verbindungen)
-            if total_new == 0:
+                self.logger.info("Keine Verbindungen gefunden")
+                # Status-Update senden wenn keine Verbindungen
                 self.telegram.notify_status(
                     checked_dates=self.session_stats["dates_checked"],
-                    total_connections=self.session_stats["connections_found"],
-                    new_connections=0
+                    total_connections=self.session_stats["connections_found"]
                 )
             
             # Fehler-Report falls Fehler aufgetreten
@@ -222,22 +152,19 @@ class ConnectionMonitor:
         }
     
     def run_test_mode(self) -> bool:
-        """Führe Test-Modus durch (prüfe nur wenige Tage)"""
+        """Führe Test-Modus durch (verwendet konfigurierten Zieltag)"""
         self.logger.info("🧪 Starte Test-Modus")
         
         try:
-            # Teste nur 3 Tage im März
-            test_connections = self.check_march_2025_connections(
-                start_day=15, 
-                end_day=17,
+            # Teste konfigurierten Zieltag
+            test_connections = self.check_target_day_connections(
+                self.config.target_day,
                 start_hour=10
             )
             
-            total_new = sum(len(journeys) for journeys in test_connections.values())
-            
             # Test-Zusammenfassung
             summary = self.get_session_summary()
-            self.logger.info(f"Test abgeschlossen: {total_new} neue Verbindungen, {summary['total_api_calls']} API calls")
+            self.logger.info(f"Test abgeschlossen: {len(test_connections)} Verbindungen gefunden, {summary['total_api_calls']} API calls")
             
             return True
             

@@ -76,16 +76,16 @@ python src/config.py
 docker build -t bahnabfrage .
 
 # Run with Docker Compose
-docker-compose up -d
+docker compose up -d
 
 # View Docker logs
-docker-compose logs -f
+docker compose logs -f
 
 # Stop Docker container
-docker-compose down
+docker compose down
 
 # Rebuild and restart container
-docker-compose down && docker-compose build --no-cache && docker-compose up -d
+docker compose down && docker compose build --no-cache && docker compose up -d
 
 # Execute commands in running container
 docker-compose exec bahnabfrage bash
