@@ -114,10 +114,17 @@ class Config:
     
     def print_config_summary(self):
         """Drucke Konfigurations-Zusammenfassung"""
+        year, month = self.get_target_year_month()
+        months_german = [
+            "Januar", "Februar", "März", "April", "Mai", "Juni",
+            "Juli", "August", "September", "Oktober", "November", "Dezember"
+        ]
+        month_name = months_german[month - 1]
+        
         print("🔧 Konfiguration geladen:")
         print(f"   Route: {self.departure_station} → {self.destination_station}")
         print(f"   Zeitraum: {self.target_month}")
-        print(f"   Zieltag: {self.target_day}. März 2025")
+        print(f"   Zieltag: {self.target_day}. {month_name} {year}")
         print(f"   Test-Modus: {'✅ Aktiviert' if self.test_mode else '❌ Deaktiviert'}")
         
         print(f"   Telegram Bot: {'✅ Konfiguriert' if self.telegram_bot_token else '❌ Fehlt'}")

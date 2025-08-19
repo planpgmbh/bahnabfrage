@@ -34,8 +34,8 @@ else:
     exit(1)
 '"
 
-# Deutsche Bahn API für März 2025 testen (ohne Benachrichtigungen)
-echo "🚄 Teste Deutsche Bahn Verbindungssuche für März 2025..."
+# Deutsche Bahn API testen (ohne Benachrichtigungen)
+echo "🚄 Teste Deutsche Bahn Verbindungssuche..."
 CONNECTION_TEST_RESULT=$(su bahnmonitor -c "cd /app && PYTHONPATH=/app python -c '
 import sys
 sys.path.insert(0, \"/app/src\")
@@ -46,37 +46,36 @@ try:
     config = load_config()
     db_client = DBClient(timeout=config.api_timeout_seconds)
     
-    # Teste März 2025 Verbindungen (Sample: nur 3 Tage)
-    total_connections = 0
-    test_dates = [15, 16, 17]  # Test-Sample
+    # Teste konfigurierten Tag aus .env
+    year, month = config.get_target_year_month()
+    target_day = config.target_day
     
     from datetime import datetime
-    for day in test_dates:
-        try:
-            test_date = datetime(2025, 3, day, 10, 0)
-            journeys = db_client.search_journeys(
-                HAMBURG_HBF_ID, 
-                LANDECK_ZAMS_ID, 
-                test_date, 
-                max_results=10
-            )
-            total_connections += len(journeys)
-        except:
-            pass
+    test_date = datetime(year, month, target_day, 10, 0)
+    journeys = db_client.search_journeys(
+        HAMBURG_HBF_ID, 
+        LANDECK_ZAMS_ID, 
+        test_date, 
+        max_results=10
+    )
     
-    print(f\"SUCCESS:{total_connections}\")
+    total_connections = len(journeys)
+    print(f\"SUCCESS:{total_connections}:{target_day}:{month}:{year}\")
 except Exception as e:
     print(f\"ERROR:{str(e)}\")
 ' 2>&1")
 
 # Parse Ergebnis
-if [[ "$CONNECTION_TEST_RESULT" =~ SUCCESS:([0-9]+) ]]; then
+if [[ "$CONNECTION_TEST_RESULT" =~ SUCCESS:([0-9]+):([0-9]+):([0-9]+):([0-9]+) ]]; then
     CONNECTION_COUNT="${BASH_REMATCH[1]}"
-    echo "✅ Deutsche Bahn API Test erfolgreich: $CONNECTION_COUNT Verbindungen gefunden"
+    TARGET_DAY="${BASH_REMATCH[2]}"
+    TARGET_MONTH="${BASH_REMATCH[3]}"
+    TARGET_YEAR="${BASH_REMATCH[4]}"
+    echo "✅ Deutsche Bahn API Test erfolgreich: $CONNECTION_COUNT Verbindungen für ${TARGET_DAY}.${TARGET_MONTH}.${TARGET_YEAR} gefunden"
     if [ "$CONNECTION_COUNT" -gt 0 ]; then
-        DB_STATUS="✅ $CONNECTION_COUNT Verbindungen verfügbar"
+        DB_STATUS="✅ $CONNECTION_COUNT Verbindungen für ${TARGET_DAY}.${TARGET_MONTH}.${TARGET_YEAR}"
     else
-        DB_STATUS="⚠️ API erreichbar, aber keine Verbindungen gefunden"
+        DB_STATUS="⚠️ API erreichbar, aber keine Verbindungen für ${TARGET_DAY}.${TARGET_MONTH}.${TARGET_YEAR}"
     fi
 else
     echo "⚠️ Deutsche Bahn API Test mit Problemen (Container startet trotzdem)"
@@ -102,9 +101,18 @@ time_format = \"%H:%M\"
 # DB-Test Ergebnis aus Umgebung lesen
 db_status = os.environ.get(\"DB_STATUS\", \"⚠️ Status unbekannt\")
 
+# Konfigurierte Daten aus .env
+year, month = config.get_target_year_month()
+target_day = config.target_day
+months_german = [
+    \"Januar\", \"Februar\", \"März\", \"April\", \"Mai\", \"Juni\",
+    \"Juli\", \"August\", \"September\", \"Oktober\", \"November\", \"Dezember\"
+]
+month_name = months_german[month - 1]
+
 message = f\"🐳 **Container gestartet**\\n\\n\" + \
-          f\"📅 März 2025: {db_status}\\n\" + \
-          f\"🚄 Route: Hamburg Hbf → Landeck-Zams\\n\" + \
+          f\"📅 {target_day}. {month_name} {year}: {db_status}\\n\" + \
+          f\"🚄 Route: {config.departure_station} → {config.destination_station}\\n\" + \
           f\"⏰ Nächste Prüfung: {next_check.strftime(time_format)}\\n\\n\" + \
           f\"🤖 Überwachung läuft alle 6 Stunden\"
           
