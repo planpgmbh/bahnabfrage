@@ -1,0 +1,63 @@
+name: 🚅 DB API Bug Report
+description: Problem mit Deutsche Bahn API Integration
+title: "[DB-API] "
+labels: ["bug", "db-api", "needs-analysis"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## DB API Bug Report
+        Beschreibe Probleme mit der Deutsche Bahn Community API Integration.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Beschreibung
+      description: Was funktioniert nicht wie erwartet?
+      placeholder: "z.B. Rate Limit erreicht, Verbindungen nicht gefunden, API Timeout..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: api_endpoint
+    attributes:
+      label: Betroffener API Endpoint
+      options:
+        - "/locations (Station Search)"
+        - "/journeys (Connection Search)"  
+        - "/stops (Stop Information)"
+        - "Unbekannt"
+    validations:
+      required: true
+
+  - type: textarea
+    id: api_response
+    attributes:
+      label: API Response (falls verfügbar)
+      description: HTTP Status Code, Error Message, Response Body
+      placeholder: |
+        HTTP Status: 429
+        Error: Rate limit exceeded
+        Response: {"error": "..."}
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact Level
+      options:
+        - "Critical - Service komplett down"
+        - "High - Verbindungen werden verpasst"
+        - "Medium - Performance beeinträchtigt"
+        - "Low - Minor Issue"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction Steps
+      description: Wie kann das Problem reproduziert werden?
+      placeholder: |
+        1. Service um 12:00 gestartet
+        2. API Call zu /journeys
+        3. Error nach 5 Requests

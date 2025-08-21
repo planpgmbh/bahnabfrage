@@ -12,6 +12,41 @@ This is a **Deutsche Bahn Train Connection Monitor** that automatically monitors
 - Operates session-based (no persistent database storage)
 - Implements rate limiting (75/100 requests/minute for stability)
 
+## Multi-Agent Architecture Integration
+
+### Analysis Agent Specialization
+- **API Research Sub-Agent:** DB API Endpoints, Rate Limits, Documentation Analysis
+- **System Integration Sub-Agent:** systemd, Linux Service Management, Deployment
+- **Monitoring Strategy Sub-Agent:** Logging, Alerting, Health Checks
+
+### Implementation Agent Specialization  
+- **Python Backend Sub-Agent:** Async Code, API Clients, Error Handling
+- **System Integration Sub-Agent:** systemd Services, Deployment Scripts
+- **Quality Assurance Sub-Agent:** Testing, Logging, Performance Monitoring
+
+### Multi-Agent Workflow Commands
+
+#### Analysis Agent Commands
+- `/analyze-db-api-issue [description]` - Spezialisierte DB API Bug-Analyse
+- `/plan-telegram-feature [feature]` - Telegram Bot Feature Planning
+- `/research-systemd-optimization` - systemd Service Optimierung
+
+#### Implementation Agent Commands
+- `/implement-python-async-feature [issue_number]` - Python Feature Implementation
+- `/optimize-db-api-client` - API Client Performance Optimization  
+- `/setup-monitoring-infrastructure` - Production Monitoring Setup
+
+#### Specialized Workflow Commands
+- `/deploy-to-systemd [environment]` - Automated systemd Deployment
+- `/diagnose-service-issues` - Service Troubleshooting
+- `/bahnabfrage-health-dashboard` - Real-time Health Monitoring
+
+### VS Code Multi-Agent Integration
+- **Ctrl+Shift+A:** Analysis Agent - DB API Issue Analysis
+- **Ctrl+Shift+I:** Implementation Agent - Process Queue
+- **Ctrl+Shift+T:** Test Suite Execution
+- **Ctrl+Shift+M:** Agent Status Dashboard
+
 ## Development Commands
 
 ### Setup and Installation

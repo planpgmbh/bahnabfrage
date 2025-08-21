@@ -111,10 +111,9 @@ months_german = [
 month_name = months_german[month - 1]
 
 message = f\"🐳 **Container gestartet**\\n\\n\" + \
-          f\"📅 {target_day}. {month_name} {year}: {db_status}\\n\" + \
+          f\"{db_status}\\n\" + \
           f\"🚄 Route: {config.departure_station} → {config.destination_station}\\n\" + \
           f\"⏰ Nächste Prüfung: {next_check.strftime(time_format)}\\n\\n\" + \
-          f\"🤖 Überwachung läuft alle 6 Stunden\"
           
 telegram.send_message(message)
 '"
