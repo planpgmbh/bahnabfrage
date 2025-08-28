@@ -1,46 +1,84 @@
 # Deutsche Bahn Verbindungsüberwachung
 
-Automatische Überwachung neuer Zugverbindungen
+**Production-Ready Docker-Container** für automatische Überwachung neuer Zugverbindungen
 
 ## 🎯 Funktionen
 
-- **4x tägliche Überwachung** (6:00, 12:00, 18:00, 00:00 Uhr - alle 6 Stunden)
+- **7x tägliche Überwachung** (07:00, 10:00, 13:00, 15:00, 18:00, 21:00, 00:00 Uhr)
+- **Selektive Telegram-Benachrichtigungen**: Nur bei gefundenen Verbindungen (kein Spam)
+- **Container-Startup-Benachrichtigung**: Mit aktuellem Verbindungsstatus bei jedem Start
 - **Community API**: Kostenlose DB API (v6.db.transport.rest) - keine offizielle DB API nötig
-- **Telegram-Benachrichtigungen**: Sofortige Meldung neuer Verbindungen mit Retry-Logik
 - **Session-basiert**: Keine persistente Datenspeicherung
 - **Rate-Limit optimiert**: 75% Nutzung für Stabilität (75/100 Requests/Minute)
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Docker - Empfohlen)
 
-### 1. Setup ausführen
+### 1. Repository clonen
 ```bash
 git clone <repository>
 cd bahnabfrage
-sudo ./scripts/setup.sh
 ```
 
-### 2. Produktions-Konfiguration (bereits vorbereitet)
-Die Konfiguration ist bereits optimiert:
-- ✅ Telegram Bot Token konfiguriert
-- ✅ Chat ID: 7144646940 (Ihr Chat)
-- ✅ Rate Limits optimiert
-- ✅ Logging aktiviert
-
-### 3. Test ausführen
+### 2. Konfiguration anpassen
+Bearbeite die `.env` Datei:
 ```bash
-sudo -u bahnmonitor /opt/bahnabfrage/venv/bin/python /opt/bahnabfrage/src/main.py --test
+# Telegram Bot Konfiguration
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
+
+# Zieldatum anpassen  
+TARGET_MONTH=2025-02  # Format: YYYY-MM
+TARGET_DAY=27         # Gewünschter Tag (1-31)
 ```
 
-### 4. Timer starten
+### 3. Container starten
 ```bash
-sudo systemctl start bahnabfrage.timer
-sudo systemctl status bahnabfrage.timer
+docker compose up -d
 ```
 
-## 📋 Kommandos
-
+### 4. Logs überprüfen
 ```bash
-# Test-Modus (wenige Tage)
+# Container-Logs anzeigen
+docker compose logs -f
+
+# Cron-Logs überwachen
+docker compose exec bahnabfrage tail -f /var/log/bahnabfrage/cron.log
+```
+
+## 📋 Docker Kommandos
+
+### Container-Management
+```bash
+# Container starten
+docker compose up -d
+
+# Container stoppen
+docker compose down
+
+# Container neu bauen
+docker compose build --no-cache
+
+# Status prüfen
+docker compose ps
+```
+
+### Logs und Debugging
+```bash
+# Cron-Jobs anzeigen
+docker compose exec bahnabfrage crontab -u bahnmonitor -l
+
+# Manueller Test
+docker compose exec bahnabfrage su bahnmonitor -c "cd /app && python src/main.py --test"
+
+# Cron-Status prüfen
+docker compose exec bahnabfrage ps aux | grep cron
+```
+
+## 🔧 Erweiterte Konfiguration
+
+### Native Python Kommandos (optional)
+```bash
+# Test-Modus (wenn nicht Docker)
 python src/main.py --test
 
 # Telegram-Verbindung testen
@@ -51,38 +89,50 @@ python src/main.py --run
 
 # Mit Debug-Logging
 python src/main.py --test --verbose
-
-# Mit spezifischer Config
-python src/main.py --test --config config/.env
 ```
 
-## 🔧 Konfiguration
+## ⚙️ Konfigurationsdatei (.env)
 
-### Umgebungsvariablen (.env)
+**Vollständige .env Beispiel-Konfiguration:**
 ```bash
 # Telegram Bot (PFLICHT)
-TELEGRAM_BOT_TOKEN=8286320781:AAFezNqBWPS-yUznAp_gWEo-Y58RIPOGCq8
+TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_chat_id_here
 
 # Reisedaten
 DEPARTURE_STATION=Hamburg Hbf
 DESTINATION_STATION=Landeck-Zams
-TARGET_MONTH=2025-03
+TARGET_MONTH=2025-02  # Format: YYYY-MM
+TARGET_DAY=27         # Zieltag (1-31)
 
-# API Einstellungen
+# API Einstellungen  
 API_TIMEOUT_SECONDS=30
 MAX_RESULTS_PER_QUERY=20
+
+# Zeitsteuerung
+CHECK_START_HOUR=8
+CHECK_END_HOUR=20
 
 # Logging
 LOG_LEVEL=INFO
 LOG_TO_FILE=false
-LOG_FILE_PATH=bahnabfrage.log
 
-# Test-Modus
+# Test-Modus (optional)  
 TEST_MODE=false
-TEST_START_DAY=15
-TEST_END_DAY=17
 ```
+
+## 📅 Production-Schedule
+
+Das System führt **7x täglich** automatische Checks durch:
+- **07:00 Uhr**: Morgen-Check
+- **10:00 Uhr**: Vormittags-Check  
+- **13:00 Uhr**: Mittags-Check
+- **15:00 Uhr**: Nachmittags-Check
+- **18:00 Uhr**: Abends-Check
+- **21:00 Uhr**: Nacht-Check
+- **00:00 Uhr**: Mitternachts-Check
+
+**Telegram-Benachrichtigungen erfolgen nur bei gefundenen Verbindungen** - kein Spam bei "keine Verbindungen".
 
 ## 🏗️ Projektstruktur
 

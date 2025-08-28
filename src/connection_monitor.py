@@ -127,8 +127,8 @@ class ConnectionMonitor:
             return []
     
     def run_daily_check(self) -> bool:
-        """Führe häufige Überprüfung durch (alle 3 Minuten für Zukunfts-Monitoring)"""
-        self.logger.debug("🔍 Starte 3-Minuten-Check für zukünftige Verbindungen")
+        """Führe tägliche Überprüfung durch (7x täglich)"""
+        self.logger.info("🔍 Starte täglichen Check für zukünftige Verbindungen")
         
         try:
             # Teste Telegram-Verbindung (nur bei Fehlern loggen)
@@ -141,21 +141,10 @@ class ConnectionMonitor:
             
             if len(connections) > 0:
                 self.logger.info(f"🎉 {len(connections)} Verbindungen gefunden für zukünftiges Datum!")
+                # Nur bei gefundenen Verbindungen wird eine Telegram-Nachricht gesendet
             else:
-                self.logger.debug(f"Keine Verbindungen für {self.config.get_formatted_date_description()} (normal bei Zukunfts-Monitoring)")
-                # Sende nur alle 60 Minuten eine "Keine Verbindungen" Nachricht (um Spam zu vermeiden)
-                current_time = datetime.now()
-                minutes_since_start = (current_time - self.session_stats["start_time"]).total_seconds() / 60
-                
-                # Sende Nachricht nur beim ersten Check oder alle 60 Minuten (alle 20. Check bei 3-Min-Intervall)
-                if minutes_since_start < 1 or (minutes_since_start % 60) < 3:  
-                    self.telegram.notify_no_connections_found(
-                        target_day=self.config.target_day,
-                        checked_dates=self.session_stats["dates_checked"],
-                        date_description=self.config.get_formatted_date_description()
-                    )
-                else:
-                    self.logger.debug("Überspringe Telegram-Nachricht (Spam-Schutz) - keine Verbindungen")
+                self.logger.info(f"Keine Verbindungen für {self.config.get_formatted_date_description()} - keine Telegram-Nachricht")
+                # KEINE Telegram-Nachricht bei fehlenden Verbindungen (außer bei Fehlern)
             
             # Fehler-Report falls Fehler aufgetreten
             if self.session_stats["errors"]:

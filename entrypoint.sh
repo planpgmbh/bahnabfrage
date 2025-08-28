@@ -83,15 +83,64 @@ else
     DB_STATUS="❌ API-Test fehlgeschlagen"
 fi
 
-# Startup-Benachrichtigung vereinfacht
-echo "📢 Container bereit für 3-Minuten-Monitoring"
-echo "🎯 Zieldatum: 27. Februar 2026"
-echo "💬 Telegram-Benachrichtigungen werden beim ersten Fund gesendet"
+# Startup-Benachrichtigung mit Verbindungscheck senden
+echo "📢 Sende Container-Startup-Benachrichtigung mit Verbindungscheck..."
+su bahnmonitor -c "cd /app && source .env 2>/dev/null && PYTHONPATH=/app python -c '
+import sys
+sys.path.insert(0, \"/app/src\")
+from telegram_notifier import TelegramNotifier
+from config import load_config
+from db_client import DBClient, HAMBURG_HBF_ID, LANDECK_ZAMS_ID
+from datetime import datetime
+
+config = load_config()
+telegram = TelegramNotifier(config.telegram_bot_token, config.telegram_chat_id)
+db_client = DBClient(timeout=config.api_timeout_seconds)
+
+# Echte Verbindungssuche für Startup-Nachricht
+try:
+    year, month = config.get_target_year_month()
+    target_day = config.target_day
+    test_date = datetime(year, month, target_day, 10, 0)
+    
+    journeys = db_client.search_journeys(
+        HAMBURG_HBF_ID, 
+        LANDECK_ZAMS_ID, 
+        test_date, 
+        max_results=10
+    )
+    
+    connection_count = len(journeys)
+    date_desc = config.get_formatted_date_description()
+    
+    if connection_count > 0:
+        connection_status = f\"✅ {connection_count} Verbindung(en) verfügbar für {date_desc}\"
+    else:
+        connection_status = f\"❌ Keine Verbindungen für {date_desc} vorhanden\"
+        
+except Exception as e:
+    connection_status = f\"⚠️ Fehler bei Verbindungscheck: {str(e)}\"
+
+# Startup-Nachricht mit aktuellem Verbindungsstatus
+message = f\"🐳 **Container gestartet**\\n\\n\" + \
+          f\"🚄 Route: {config.departure_station} → {config.destination_station}\\n\" + \
+          f\"🎯 Überwacht: {date_desc}\\n\" + \
+          f\"{connection_status}\\n\\n\" + \
+          f\"⏰ Checks: 07:00, 10:00, 13:00, 15:00, 18:00, 21:00, 00:00\\n\" + \
+          f\"💬 Benachrichtigung nur bei gefundenen Verbindungen\"
+
+telegram.send_message(message)
+print(f\"✅ Startup-Benachrichtigung gesendet: {connection_count if 'connection_count' in locals() else 0} Verbindungen\")
+'"
+
+echo "🎯 Container bereit für 7x tägliche Überwachung"
+echo "📅 Zieldatum: 27. Februar 2026"
+echo "💬 Telegram-Benachrichtigungen nur bei gefundenen Verbindungen"
 
 # Umgebungsvariable für Python-Script setzen
 export DB_STATUS
 
-echo "✅ Container bereit - starte Cron-Daemon..."
+echo "✅ Container bereit - starte Cron-Daemon (7x täglich)..."
 
 # Zeige installierte Cron-Jobs
 echo "🕐 Installierte Cron-Jobs:"

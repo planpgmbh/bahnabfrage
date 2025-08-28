@@ -7,19 +7,21 @@ Diese Datei bietet Anleitung für Claude Code (claude.ai/code) beim Arbeiten mit
 
 ## Projektübersicht
 
-Dies ist ein **Deutsche Bahn Zugverbindungs-Monitor**, der automatisch nach Verbindungen zwischen Hamburg Hbf und Landeck-Zams für März 2025 sucht. Die Anwendung:
+Dies ist ein **Deutsche Bahn Zugverbindungs-Monitor**, der automatisch nach Verbindungen zwischen Hamburg Hbf und Landeck-Zams sucht. Die Anwendung:
 
-- Überwacht Verbindungen 4x täglich (6:00, 12:00, 18:00, 00:00) mit systemd timers
+- **7x täglich Überwachung**: 07:00, 10:00, 13:00, 15:00, 18:00, 21:00, 00:00 Uhr via Docker Cron
 - Nutzt die kostenlose Community API (v6.db.transport.rest) - keine offizielle DB API Authentifizierung erforderlich
-- Sendet Telegram-Benachrichtigungen für neue Verbindungen mit Retry-Logik
+- **Selektive Telegram-Benachrichtigungen**: Nur bei gefundenen Verbindungen (kein Spam)
+- **Container-Startup-Benachrichtigung**: Mit aktuellem Verbindungsstatus bei jedem Docker-Start
 - Arbeitet session-basiert (keine persistente Datenspeicherung)
 - Implementiert Rate-Limiting (75/100 requests/minute für Stabilität)
 
-### Wichtige Designentscheidung: Single-Day Approach
-Die Anwendung wurde von einem Multi-Day-Ansatz auf einen **Single-Day-Ansatz** umgestellt:
-- Überwacht nur einen konfigurierbaren Tag (TARGET_DAY) im März 2025
-- Vereinfacht die Logik und reduziert API-Aufrufe erheblich
-- Keine Duplikats-Erkennung mehr erforderlich, da nur ein Tag geprüft wird
+### Production-Ready Docker Setup
+Die Anwendung läuft produktiv in Docker mit:
+- **Single-Day-Monitoring**: Überwacht einen konfigurierbaren Zieltag (z.B. 27. Februar 2025)
+- **Cron-basierte Automatisierung**: 7 tägliche Checks für optimale Erkennung
+- **Erweiterte Startup-Diagnostik**: Container-Start mit Verbindungscheck und Telegram-Benachrichtigung
+- **Volume-gemountete Konfiguration**: Live-Änderungen der .env ohne Container-Neubau
 
 ## Multi-Agent Architecture Integration
 
@@ -159,28 +161,28 @@ docker-compose exec bahnabfrage crontab -u bahnmonitor -l
 - Returns Journey objects with departure/arrival times, duration, transfers
 
 **connection_monitor.py** - Core monitoring logic
-- Session-based duplicate detection using connection signatures
-- Checks all days in March 2025 (or test range 15-17)
-- Filters new connections and triggers notifications
-- Tracks statistics (API calls, connections found, errors)
+- **Production-optimiert für 7x tägliche Checks**: 07:00, 10:00, 13:00, 15:00, 18:00, 21:00, 00:00
+- **Selektive Benachrichtigungslogik**: Telegram nur bei gefundenen Verbindungen
+- Session-basierte Erstmalig-Erkennung für spezielle "NEUE VERBINDUNGEN VERFÜGBAR" Meldungen
+- Überwacht konfigurierbaren Zieltag (TARGET_DAY) im konfigurierten Monat (TARGET_MONTH)
 
 **telegram_notifier.py** - Telegram Bot integration
-- Sends formatted connection notifications with journey details
+- **Erweiterte Nachrichtentypen**: Container-Startup, Verbindungen gefunden, Fehler-Reports
 - Implements retry logic (3 attempts with 5s delays)
-- Handles startup notifications, error reports, status updates
+- **Spam-Schutz**: Keine wiederholten "keine Verbindungen"-Nachrichten
 
-### Data Flow
-1. main.py loads config and initializes components
-2. ConnectionMonitor checks each date in March 2025
-3. DBClient makes API calls with rate limiting  
-4. New connections (not seen in current session) trigger Telegram notifications
-5. Session statistics and errors are logged and reported
+### Data Flow (Production Setup)
+1. **Container-Start**: Lädt Konfiguration, prüft Verbindungen, sendet Startup-Benachrichtigung
+2. **7x täglich Cron**: ConnectionMonitor prüft konfigurierten Zieltag 
+3. **API-Aufruf**: DBClient macht rate-limited API-Aufruf zur Deutschen Bahn
+4. **Selektive Benachrichtigung**: Nur bei gefundenen Verbindungen wird Telegram-Nachricht gesendet
+5. **Session-Statistiken**: Laufzeit, API-Aufrufe, Fehler werden geloggt
 
-### Session-Based Operation
-- **No persistent storage** - each run starts fresh
-- **First run**: All connections are "new" and generate notifications
-- **Subsequent runs**: Only genuinely new connections trigger alerts  
-- **Restart behavior**: After restart, all connections appear new again
+### Session-Based Operation (Optimiert für Production)
+- **Kein persistenter Speicher**: Jeder Cron-Run startet fresh
+- **Container-Startup**: Immer Benachrichtigung mit aktuellem Verbindungsstatus
+- **Erstmalig-Erkennung**: Spezielle "VERBINDUNGEN JETZT VERFÜGBAR" Nachricht beim ersten Fund
+- **Produktions-Verhalten**: 7x täglich saubere, fokussierte Checks
 
 ## Key Configuration
 
@@ -193,10 +195,10 @@ TELEGRAM_CHAT_ID=your_chat_id_here
 # Route-Einstellungen
 DEPARTURE_STATION=Hamburg Hbf
 DESTINATION_STATION=Landeck-Zams
-TARGET_MONTH=2025-03
-TARGET_DAY=15  # Konfigurierbarer Zieltag (1-31)
+TARGET_MONTH=2025-02  # Format: YYYY-MM
+TARGET_DAY=27         # Konfigurierbarer Zieltag (1-31)
 
-# Zeitsteuerung
+# Zeitsteuerung  
 CHECK_START_HOUR=8
 CHECK_END_HOUR=20
 
@@ -207,8 +209,10 @@ LOG_LEVEL=INFO
 LOG_TO_FILE=false
 ```
 
-### Production vs Test Mode
-- **Production**: Überwacht den konfigurierten TARGET_DAY täglich, sendet Startup-Benachrichtigungen
+### Production-Setup (7x täglich)
+- **Container-Startup**: Immer Telegram-Benachrichtigung mit Verbindungsstatus
+- **Cron-Schedule**: 07:00, 10:00, 13:00, 15:00, 18:00, 21:00, 00:00 Uhr
+- **Selektive Benachrichtigungen**: Nur bei gefundenen Verbindungen
 - **Test**: Verwendet ebenfalls TARGET_DAY, aber ohne Startup-Benachrichtigungen, schnellere Ausführung
 
 ### API Rate Limiting
@@ -227,13 +231,14 @@ The production setup creates:
 - Log directory `/var/log/bahnabfrage/`
 - Configuration file at `/opt/bahnabfrage/.env`
 
-### Docker Deployment
-Alternative containerized deployment:
-- Uses Python 3.11-slim base image
-- Runs cron jobs inside container for scheduling
+### Docker Deployment (Production)
+**Empfohlenes Production-Setup**:
+- Uses Python 3.11-slim base image mit Cron-Daemon
+- **7x täglich Cron-Jobs**: 07:00, 10:00, 13:00, 15:00, 18:00, 21:00, 00:00 Uhr
+- **Volume-gemountete .env**: Live-Konfigurationsänderungen ohne Container-Neubau  
 - Persistent logs via volume mount (`./logs:/var/log/bahnabfrage`)
+- **Enhanced Startup**: Container-Start mit Verbindungscheck und Telegram-Benachrichtigung
 - Health checks via configuration validation
-- Environment variables loaded from `.env` file
 
 ## Error Handling
 
@@ -289,9 +294,10 @@ Alternative containerized deployment:
 ### Häufige Probleme
 - **Telegram funktioniert nicht**: Bot-Token-Format prüfen (muss Doppelpunkt enthalten: BOT_ID:TOKEN)
 - **API Rate Limiting**: Anwendung drosselt automatisch auf 75/100 Requests/Minute
-- **Keine Verbindungen gefunden**: Station-IDs und TARGET_DAY prüfen (nur März 2025)
-- **Berechtigungsfehler**: Service-User `bahnmonitor` muss Eigentümer aller Dateien in `/opt/bahnabfrage/` sein
-- **Falscher Tag**: TARGET_DAY muss zwischen 1-31 liegen und für März 2025 gültig sein
+- **Keine Verbindungen gefunden**: Station-IDs, TARGET_MONTH und TARGET_DAY prüfen
+- **Berechtigungsfehler**: Service-User `bahnmonitor` muss Eigentümer aller Dateien in `/opt/bahnabfrage/` sein  
+- **Falscher Tag**: TARGET_DAY muss zwischen 1-31 liegen und für TARGET_MONTH gültig sein
+- **API Error 500**: Normal für weit zukünftige Daten (z.B. Februar 2025/2026)
 
 ### Docker-specific Troubleshooting
 

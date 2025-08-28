@@ -1,12 +1,18 @@
 # Deutsche Bahn Verbindungsüberwachung - Docker Cron  
-# Läuft alle 3 Minuten für sofortige Erkennung neuer Verbindungen
+# Läuft 7x täglich: 07:00, 10:00, 13:00, 15:00, 18:00, 21:00, 00:00
 
 # Umgebungsvariablen für Cron - Essential für Container
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 PYTHONPATH=/app
 
-# Cron-Job (alle 3 Minuten) - Überwachung zukünftiger Verbindungen
-*/3 * * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 3-Min Check gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
+# Cron-Jobs - 7x täglich Überwachung
+0 7 * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 07:00 Check gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
+0 10 * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 10:00 Check gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
+0 13 * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 13:00 Check gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
+0 15 * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 15:00 Check gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
+0 18 * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 18:00 Check gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
+0 21 * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 21:00 Check gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
+0 0 * * * bahnmonitor /bin/bash -c 'echo "=== $(date) - 00:00 Check gestartet ===" >> /var/log/bahnabfrage/cron.log; cd /app && source .env 2>/dev/null && python src/main.py --run >> /var/log/bahnabfrage/cron.log 2>&1'
 
 # Leere Zeile am Ende (wichtig für Cron)
