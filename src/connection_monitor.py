@@ -30,6 +30,9 @@ class ConnectionMonitor:
             "connections_found": 0,
             "errors": []
         }
+        
+        # Für Zukunfts-Monitoring: Tracke ob schon mal Verbindungen gefunden wurden
+        self.previous_connections_found = False
     
     # Duplikats-Erkennungs-Methoden entfernt - zeige immer alle Verbindungen
     
@@ -54,7 +57,7 @@ class ConnectionMonitor:
             if journeys:
                 self.logger.info(f"Gefunden: {len(journeys)} Verbindungen für {date_str}")
             else:
-                self.logger.info(f"Keine Verbindungen für {date_str}")
+                self.logger.debug(f"Keine Verbindungen für {date_str} (bei Zukunfts-Monitoring normal)")
             
             return journeys
             
@@ -67,12 +70,16 @@ class ConnectionMonitor:
     # filter_new_connections entfernt - verwende immer alle gefundenen Verbindungen
     
     def check_target_day_connections(self, target_day: int, start_hour: int = 8) -> List[Journey]:
-        """Prüfe Verbindungen für einen einzelnen Tag im März 2025"""
-        self.logger.info(f"Starte Verbindungssuche für {target_day}. März 2025")
+        """Prüfe Verbindungen für einen einzelnen Tag im konfigurierten Monat"""
+        date_description = self.config.get_formatted_date_description()
+        self.logger.info(f"Starte Verbindungssuche für {date_description}")
         
         try:
-            # Erstelle Zieldatum
-            target_date = datetime(2025, 3, target_day, start_hour, 0)
+            # Hole Jahr und Monat aus Konfiguration
+            year, month = self.config.get_target_year_month()
+            
+            # Erstelle Zieldatum aus Konfiguration
+            target_date = datetime(year, month, target_day, start_hour, 0)
             
             # Prüfe Verbindungen für diesen Tag
             journeys = self.check_single_date(target_date)
@@ -81,21 +88,35 @@ class ConnectionMonitor:
                 date_str = target_date.strftime("%Y-%m-%d")
                 self.logger.info(f"📅 {len(journeys)} Verbindungen gefunden für {date_str}")
                 
-                # Sende Telegram-Benachrichtigung für diesen einen Tag
-                self.telegram.notify_single_day_connections(
-                    journeys,
-                    date_str,
-                    "Hamburg Hbf",
-                    "Landeck-Zams"
-                )
+                # Prüfe ob das ERSTMALIG gefundene Verbindungen sind
+                if not self.previous_connections_found:
+                    # ERSTE MAL - Spezielle "NEUE VERBINDUNGEN VERFÜGBAR" Nachricht
+                    self.telegram.notify_connections_now_available(
+                        journeys,
+                        date_str,
+                        self.config.departure_station,
+                        self.config.destination_station,
+                        date_description
+                    )
+                    self.previous_connections_found = True
+                    self.logger.info("🎉 ERSTMALIG Verbindungen gefunden - Spezielle Benachrichtigung gesendet")
+                else:
+                    # Wiederholter Fund - normale Nachricht
+                    self.telegram.notify_single_day_connections(
+                        journeys,
+                        date_str,
+                        self.config.departure_station,
+                        self.config.destination_station,
+                        date_description
+                    )
             else:
-                self.logger.info(f"Keine Verbindungen für {target_day}. März 2025")
+                self.logger.info(f"Keine Verbindungen für {date_description}")
             
             return journeys
             
         except ValueError as e:
             # Tag existiert nicht (z.B. 32. März)
-            error_msg = f"Ungültiger Tag: {target_day}. März 2025 - {str(e)}"
+            error_msg = f"Ungültiger Tag: {date_description} - {str(e)}"
             self.logger.error(error_msg)
             self.session_stats["errors"].append(error_msg)
             return []
@@ -106,11 +127,11 @@ class ConnectionMonitor:
             return []
     
     def run_daily_check(self) -> bool:
-        """Führe tägliche Überprüfung durch (4x täglich ausgeführt)"""
-        self.logger.info("🚀 Starte tägliche Verbindungssuche")
+        """Führe häufige Überprüfung durch (alle 3 Minuten für Zukunfts-Monitoring)"""
+        self.logger.debug("🔍 Starte 3-Minuten-Check für zukünftige Verbindungen")
         
         try:
-            # Teste Telegram-Verbindung
+            # Teste Telegram-Verbindung (nur bei Fehlern loggen)
             if not self.telegram.test_connection():
                 self.logger.error("Telegram-Verbindung fehlgeschlagen")
                 return False
@@ -119,14 +140,22 @@ class ConnectionMonitor:
             connections = self.check_target_day_connections(self.config.target_day)
             
             if len(connections) > 0:
-                self.logger.info(f"📊 {len(connections)} Verbindungen gefunden")
+                self.logger.info(f"🎉 {len(connections)} Verbindungen gefunden für zukünftiges Datum!")
             else:
-                self.logger.info("Keine Verbindungen gefunden")
-                # Status-Update senden wenn keine Verbindungen
-                self.telegram.notify_status(
-                    checked_dates=self.session_stats["dates_checked"],
-                    total_connections=self.session_stats["connections_found"]
-                )
+                self.logger.debug(f"Keine Verbindungen für {self.config.get_formatted_date_description()} (normal bei Zukunfts-Monitoring)")
+                # Sende nur alle 60 Minuten eine "Keine Verbindungen" Nachricht (um Spam zu vermeiden)
+                current_time = datetime.now()
+                minutes_since_start = (current_time - self.session_stats["start_time"]).total_seconds() / 60
+                
+                # Sende Nachricht nur beim ersten Check oder alle 60 Minuten (alle 20. Check bei 3-Min-Intervall)
+                if minutes_since_start < 1 or (minutes_since_start % 60) < 3:  
+                    self.telegram.notify_no_connections_found(
+                        target_day=self.config.target_day,
+                        checked_dates=self.session_stats["dates_checked"],
+                        date_description=self.config.get_formatted_date_description()
+                    )
+                else:
+                    self.logger.debug("Überspringe Telegram-Nachricht (Spam-Schutz) - keine Verbindungen")
             
             # Fehler-Report falls Fehler aufgetreten
             if self.session_stats["errors"]:

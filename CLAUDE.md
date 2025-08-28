@@ -1,16 +1,25 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Diese Datei bietet Anleitung für Claude Code (claude.ai/code) beim Arbeiten mit Code in diesem Repository.
 
-## Project Overview
+## Wichtige Anweisung
+**Alle Antworten und Kommunikation sollen auf Deutsch erfolgen.**
 
-This is a **Deutsche Bahn Train Connection Monitor** that automatically monitors new train connections between Hamburg Hbf and Landeck-Zams for March 2025. The application:
+## Projektübersicht
 
-- Monitors connections 4x daily (6:00, 12:00, 18:00, 00:00) using systemd timers
-- Uses the free Community API (v6.db.transport.rest) - no official DB API authentication needed  
-- Sends Telegram notifications for new connections with retry logic
-- Operates session-based (no persistent database storage)
-- Implements rate limiting (75/100 requests/minute for stability)
+Dies ist ein **Deutsche Bahn Zugverbindungs-Monitor**, der automatisch nach Verbindungen zwischen Hamburg Hbf und Landeck-Zams für März 2025 sucht. Die Anwendung:
+
+- Überwacht Verbindungen 4x täglich (6:00, 12:00, 18:00, 00:00) mit systemd timers
+- Nutzt die kostenlose Community API (v6.db.transport.rest) - keine offizielle DB API Authentifizierung erforderlich
+- Sendet Telegram-Benachrichtigungen für neue Verbindungen mit Retry-Logik
+- Arbeitet session-basiert (keine persistente Datenspeicherung)
+- Implementiert Rate-Limiting (75/100 requests/minute für Stabilität)
+
+### Wichtige Designentscheidung: Single-Day Approach
+Die Anwendung wurde von einem Multi-Day-Ansatz auf einen **Single-Day-Ansatz** umgestellt:
+- Überwacht nur einen konfigurierbaren Tag (TARGET_DAY) im März 2025
+- Vereinfacht die Logik und reduziert API-Aufrufe erheblich
+- Keine Duplikats-Erkennung mehr erforderlich, da nur ein Tag geprüft wird
 
 ## Multi-Agent Architecture Integration
 
@@ -175,26 +184,32 @@ docker-compose exec bahnabfrage crontab -u bahnmonitor -l
 
 ## Key Configuration
 
-### Required Environment Variables (.env)
+### Erforderliche Umgebungsvariablen (.env)
 ```bash
-# Mandatory
+# Pflichtfelder
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_chat_id_here
 
-# Route settings  
+# Route-Einstellungen
 DEPARTURE_STATION=Hamburg Hbf
 DESTINATION_STATION=Landeck-Zams
 TARGET_MONTH=2025-03
+TARGET_DAY=15  # Konfigurierbarer Zieltag (1-31)
 
-# Optional optimization
+# Zeitsteuerung
+CHECK_START_HOUR=8
+CHECK_END_HOUR=20
+
+# Optional
 API_TIMEOUT_SECONDS=30
 MAX_RESULTS_PER_QUERY=20
 LOG_LEVEL=INFO
+LOG_TO_FILE=false
 ```
 
 ### Production vs Test Mode
-- **Production**: Scans all 31 days of March 2025, sends startup notifications
-- **Test**: Only scans days 15-17, skips startup notifications, faster execution
+- **Production**: Überwacht den konfigurierten TARGET_DAY täglich, sendet Startup-Benachrichtigungen
+- **Test**: Verwendet ebenfalls TARGET_DAY, aber ohne Startup-Benachrichtigungen, schnellere Ausführung
 
 ### API Rate Limiting
 The application implements conservative rate limiting:
@@ -258,18 +273,25 @@ Alternative containerized deployment:
 3. Run limited test: `python src/main.py --test --verbose`
 4. Only run full production scan when confident
 
-### Key Constants
+### Wichtige Konstanten
 - Hamburg Hbf Station ID: `8002549` (db_client.py:232)
 - Landeck-Zams Station ID: `8100063` (db_client.py:233)
-- Rate limit: 75 requests/minute (25% safety margin from API limit)
-- Test mode checks days 15-17 of March 2025
-- Production mode checks all 31 days of March 2025
+- Rate Limit: 75 Requests/Minute (25% Sicherheitsmarge)
+- Standard TARGET_DAY: 15. März 2025 (konfigurierbar über .env)
+- Test-Modus nutzt denselben TARGET_DAY wie Production
 
-### Common Issues
-- **Telegram not working**: Verify bot token format includes colon (BOT_ID:TOKEN)
-- **API rate limiting**: Application automatically throttles to 75/100 requests/minute
-- **No connections found**: Check station IDs and date range (March 2025 only)
-- **Permission errors**: Ensure service user `bahnmonitor` owns all files in `/opt/bahnabfrage/`
+### Architektur-Highlights
+- **Single-Day Focus**: Reduziert Komplexität durch Fokus auf einen Tag
+- **Session-Based**: Keine persistente Speicherung, jeder Lauf startet fresh
+- **Error-Resilient**: Umfassendes Error Handling mit Telegram-Benachrichtigungen
+- **Rate-Limited**: Automatische Drosselung zum Schutz der API
+
+### Häufige Probleme
+- **Telegram funktioniert nicht**: Bot-Token-Format prüfen (muss Doppelpunkt enthalten: BOT_ID:TOKEN)
+- **API Rate Limiting**: Anwendung drosselt automatisch auf 75/100 Requests/Minute
+- **Keine Verbindungen gefunden**: Station-IDs und TARGET_DAY prüfen (nur März 2025)
+- **Berechtigungsfehler**: Service-User `bahnmonitor` muss Eigentümer aller Dateien in `/opt/bahnabfrage/` sein
+- **Falscher Tag**: TARGET_DAY muss zwischen 1-31 liegen und für März 2025 gültig sein
 
 ### Docker-specific Troubleshooting
 

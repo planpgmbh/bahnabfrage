@@ -123,7 +123,8 @@ class TelegramNotifier:
                                     connections: List[Journey], 
                                     date: str,
                                     from_station: str = "Hamburg Hbf",
-                                    to_station: str = "Landeck-Zams") -> bool:
+                                    to_station: str = "Landeck-Zams",
+                                    date_description: str = None) -> bool:
         """Benachrichtige über Verbindungen für einen einzelnen Tag"""
         
         if not connections:
@@ -132,8 +133,9 @@ class TelegramNotifier:
         # Header
         count = len(connections)
         plural = "en" if count != 1 else ""
+        display_date = date_description if date_description else date
         message_lines = [
-            f"🚄 *{count} Verbindung{plural} am {date}*",
+            f"🚄 *{count} Verbindung{plural} am {display_date}*",
             f"🚉 *Route:* {from_station} → {to_station}",
             "",
         ]
@@ -177,7 +179,7 @@ class TelegramNotifier:
         
         # Header
         message_lines = [
-            f"🚄 *Verbindungen März 2025*",
+            f"🚄 *Alle gefundenen Verbindungen*",
             f"🚉 *Route:* {from_station} → {to_station}",
             f"📊 *{total_connections} Verbindungen an {total_days} Tagen*",
             "",
@@ -262,12 +264,116 @@ class TelegramNotifier:
             "🚀 *Verbindungssuche gestartet*",
             "",
             "🚉 *Route:* Hamburg Hbf → Landeck-Zams",
-            "📅 *Zeitraum:* März 2025",
             "⏰ *Frequenz:* 4x täglich",
             "",
             f"*Gestartet:* {datetime.now().strftime('%d.%m.%Y %H:%M')}",
             "",
             "🔍 _Verbindungssuche läuft..._"
+        ]
+        
+        message = "\n".join(message_lines)
+        return self.send_message(message)
+    
+    def notify_startup_completed(self, target_day: int, connections_found: int, 
+                               from_station: str = "Hamburg Hbf", 
+                               to_station: str = "Landeck-Zams",
+                               date_description: str = None) -> bool:
+        """Benachrichtige über abgeschlossenen Startup mit Suchergebnissen"""
+        display_date = date_description if date_description else f"{target_day}. Tag"
+        message_lines = [
+            "🚀 *Verbindungssuche abgeschlossen*",
+            "",
+            f"🚉 *Route:* {from_station} → {to_station}",
+            f"📅 *Zieltag:* {display_date}",
+        ]
+        
+        if connections_found > 0:
+            plural = "en" if connections_found != 1 else ""
+            message_lines.append(f"✅ *{connections_found} Verbindung{plural} gefunden*")
+        else:
+            message_lines.append("⚠️ *Keine Verbindungen verfügbar*")
+        
+        message_lines.extend([
+            "",
+            "⏰ *Nächste Suche:* In 3 Minuten",
+            "",
+            f"*Gestartet:* {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            "",
+            "🤖 _Automatische Überwachung alle 3 Minuten..._"
+        ])
+        
+        message = "\n".join(message_lines)
+        return self.send_message(message)
+    
+    def notify_connections_now_available(self, 
+                                       connections: List[Journey], 
+                                       date: str,
+                                       from_station: str = "Hamburg Hbf",
+                                       to_station: str = "Landeck-Zams",
+                                       date_description: str = None) -> bool:
+        """Benachrichtige über ERSTMALIG verfügbare Verbindungen (wichtig!)"""
+        
+        if not connections:
+            return True
+        
+        count = len(connections)
+        plural = "en" if count != 1 else ""
+        display_date = date_description if date_description else date
+        
+        message_lines = [
+            "🎉 *NEUE VERBINDUNGEN VERFÜGBAR!*",
+            "",
+            f"🚄 *{count} Verbindung{plural} für {display_date}*",
+            f"🚉 *Route:* {from_station} → {to_station}",
+            "",
+            "🔥 *Diese Verbindungen sind jetzt buchbar:*",
+            "",
+        ]
+        
+        # Verbindungen auflisten
+        for i, journey in enumerate(connections, 1):
+            dep_time = journey.departure_time.strftime("%H:%M")
+            arr_time = journey.arrival_time.strftime("%H:%M")
+            duration_hours = journey.duration_minutes // 60
+            duration_mins = journey.duration_minutes % 60
+            duration_str = f"{duration_hours}h {duration_mins:02d}m"
+            
+            transfers_text = "Direktverbindung" if journey.transfers == 0 else f"{journey.transfers} Umstieg{'e' if journey.transfers > 1 else ''}"
+            
+            message_lines.append(f"🚆 **{i}.** {dep_time} → {arr_time}")
+            message_lines.append(f"     ⏱ {duration_str} • {transfers_text}")
+            message_lines.append("")
+        
+        # Footer
+        message_lines.extend([
+            "⚡ *SCHNELL BUCHEN EMPFOHLEN!*",
+            "",
+            f"📅 *Erkannt am:* {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            "",
+            "🎯 _Zukünftige Verbindungen erfolgreich gefunden_"
+        ])
+        
+        message = "\n".join(message_lines)
+        return self.send_message(message)
+    
+    def notify_no_connections_found(self, target_day: int, checked_dates: int,
+                                   from_station: str = "Hamburg Hbf",
+                                   to_station: str = "Landeck-Zams", 
+                                   date_description: str = None) -> bool:
+        """Benachrichtige dass keine Verbindungen gefunden wurden"""
+        display_date = date_description if date_description else f"{target_day}. Tag"
+        message_lines = [
+            "🔍 *Verbindungssuche durchgeführt*",
+            "",
+            f"🚉 *Route:* {from_station} → {to_station}",
+            f"📅 *Zieltag:* {display_date}",
+            "",
+            "⚠️ *Keine Verbindungen verfügbar*",
+            "",
+            f"📊 *Geprüfte Tage:* {checked_dates}",
+            f"⏰ *Letzter Check:* {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            "",
+            "🔄 _Nächste Suche in 3 Minuten_"
         ]
         
         message = "\n".join(message_lines)

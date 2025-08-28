@@ -83,40 +83,10 @@ else
     DB_STATUS="❌ API-Test fehlgeschlagen"
 fi
 
-# Startup-Benachrichtigung senden
-echo "📢 Sende Startup-Benachrichtigung..."
-su bahnmonitor -c "cd /app && DB_STATUS='$DB_STATUS' PYTHONPATH=/app python -c '
-import sys
-sys.path.insert(0, \"/app/src\")
-from telegram_notifier import TelegramNotifier
-from config import load_config
-import os
-from datetime import datetime, timedelta
-
-config = load_config()
-telegram = TelegramNotifier(config.telegram_bot_token, config.telegram_chat_id)
-next_check = datetime.now() + timedelta(hours=6)
-time_format = \"%H:%M\"
-
-# DB-Test Ergebnis aus Umgebung lesen
-db_status = os.environ.get(\"DB_STATUS\", \"⚠️ Status unbekannt\")
-
-# Konfigurierte Daten aus .env
-year, month = config.get_target_year_month()
-target_day = config.target_day
-months_german = [
-    \"Januar\", \"Februar\", \"März\", \"April\", \"Mai\", \"Juni\",
-    \"Juli\", \"August\", \"September\", \"Oktober\", \"November\", \"Dezember\"
-]
-month_name = months_german[month - 1]
-
-message = f\"🐳 **Container gestartet**\\n\\n\" + \
-          f\"{db_status}\\n\" + \
-          f\"🚄 Route: {config.departure_station} → {config.destination_station}\\n\" + \
-          f\"⏰ Nächste Prüfung: {next_check.strftime(time_format)}\\n\\n\" + \
-          
-telegram.send_message(message)
-'"
+# Startup-Benachrichtigung vereinfacht
+echo "📢 Container bereit für 3-Minuten-Monitoring"
+echo "🎯 Zieldatum: 27. Februar 2026"
+echo "💬 Telegram-Benachrichtigungen werden beim ersten Fund gesendet"
 
 # Umgebungsvariable für Python-Script setzen
 export DB_STATUS

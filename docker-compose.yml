@@ -14,6 +14,7 @@ services:
     volumes:
       - ./logs:/var/log/bahnabfrage
       - /etc/localtime:/etc/localtime:ro  # Timezone sync
+      - ./.env:/app/.env  # Mount lokale .env Datei
     
     # Health Check (nur Konfiguration testen, keine Nachrichten senden)
     healthcheck:

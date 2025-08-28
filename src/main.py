@@ -98,17 +98,24 @@ def run_application(config, test_mode: bool = False) -> bool:
         
         logger.info("🚀 Starte Deutsche Bahn Verbindungsüberwachung")
         logger.info(f"Route: {config.departure_station} → {config.destination_station}")
+        logger.info(f"Zieltag: {config.get_formatted_date_description()}")
         logger.info(f"Modus: {'Test' if test_mode else 'Production'}")
         
-        # Telegram-Startup Benachrichtigung
-        if not test_mode:
-            telegram.notify_startup()
-        
-        # Überwachung starten
+        # Überwachung starten (führt Datumsabfrage durch und sendet Ergebnisse)
         if test_mode:
             success = monitor.run_test_mode()
         else:
             success = monitor.run_daily_check()
+        
+        # Startup-Benachrichtigung nur nach erfolgreicher Verbindungssuche
+        if success and not test_mode:
+            telegram.notify_startup_completed(
+                target_day=config.target_day,
+                connections_found=monitor.session_stats["connections_found"],
+                from_station=config.departure_station,
+                to_station=config.destination_station,
+                date_description=config.get_formatted_date_description()
+            )
         
         # Session-Zusammenfassung
         summary = monitor.get_session_summary()

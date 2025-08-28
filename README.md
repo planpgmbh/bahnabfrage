@@ -1,6 +1,6 @@
 # Deutsche Bahn Verbindungsüberwachung
 
-Automatische Überwachung neuer Zugverbindungen Hamburg Hbf → Landeck-Zams für März 2025 mit Telegram-Benachrichtigungen.
+Automatische Überwachung neuer Zugverbindungen
 
 ## 🎯 Funktionen
 

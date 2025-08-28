@@ -109,22 +109,30 @@ class Config:
             year_str, month_str = self.target_month.split("-")
             return int(year_str), int(month_str)
         except (ValueError, AttributeError):
-            # Fallback zu März 2025
-            return 2025, 3
+            raise ValueError("TARGET_MONTH muss im Format YYYY-MM angegeben werden")
     
-    def print_config_summary(self):
-        """Drucke Konfigurations-Zusammenfassung"""
+    def get_formatted_month_name(self) -> str:
+        """Hole deutschen Monatsnamen für den konfigurierten Monat"""
         year, month = self.get_target_year_month()
         months_german = [
             "Januar", "Februar", "März", "April", "Mai", "Juni",
             "Juli", "August", "September", "Oktober", "November", "Dezember"
         ]
-        month_name = months_german[month - 1]
-        
+        return months_german[month - 1]
+    
+    def get_formatted_date_description(self) -> str:
+        """Hole formatierte Beschreibung des Zieldatums"""
+        year, month = self.get_target_year_month()
+        month_name = self.get_formatted_month_name()
+        return f"{self.target_day}. {month_name} {year}"
+    
+    def print_config_summary(self):
+        """Drucke Konfigurations-Zusammenfassung"""
         print("🔧 Konfiguration geladen:")
         print(f"   Route: {self.departure_station} → {self.destination_station}")
         print(f"   Zeitraum: {self.target_month}")
-        print(f"   Zieltag: {self.target_day}. {month_name} {year}")
+        print(f"   🎯 Zieltag: {self.get_formatted_date_description()}")
+        print(f"   Suchzeiten: {self.check_start_hour:02d}:00 - {self.check_end_hour:02d}:00 Uhr")
         print(f"   Test-Modus: {'✅ Aktiviert' if self.test_mode else '❌ Deaktiviert'}")
         
         print(f"   Telegram Bot: {'✅ Konfiguriert' if self.telegram_bot_token else '❌ Fehlt'}")

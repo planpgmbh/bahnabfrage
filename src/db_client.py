@@ -179,21 +179,22 @@ class DBClient:
             self.logger.error(f"Fehler beim Parsen der Journey: {str(e)}")
             return None
     
-    def get_march_connections(self, 
+    def get_month_connections(self, 
                             from_station_id: str, 
                             to_station_id: str, 
-                            year: int = 2025,
+                            year: int,
+                            month: int,
                             start_hour: int = 8) -> Dict[str, List[Journey]]:
-        """Hole alle verfügbaren Verbindungen für März des gegebenen Jahres"""
+        """Hole alle verfügbaren Verbindungen für einen bestimmten Monat"""
         connections_by_date = {}
         
-        # März 2025: 1. bis 31. März (nur ein Zeitpunkt pro Tag für Produktion)
-        start_day = 1
-        end_day = 31
+        # Bestimme maximale Tageszahl für den Monat
+        import calendar
+        max_days = calendar.monthrange(year, month)[1]
         
-        for day in range(start_day, end_day + 1):
+        for day in range(1, max_days + 1):
             try:
-                current_date = datetime(year, 3, day, start_hour, 0)
+                current_date = datetime(year, month, day, start_hour, 0)
                 date_key = current_date.strftime("%Y-%m-%d")
                 
                 self.logger.info(f"Suche Verbindungen für {date_key}")
@@ -206,8 +207,8 @@ class DBClient:
                     self.logger.debug(f"Keine Verbindungen für {date_key}")
             
             except ValueError as e:
-                # Tag existiert nicht (31. in kürzeren Monaten)
-                self.logger.debug(f"Tag {day} existiert nicht: {str(e)}")
+                # Ungültiges Datum
+                self.logger.debug(f"Tag {day} für {year}-{month:02d} ungültig: {str(e)}")
                 continue
             except Exception as e:
                 self.logger.error(f"Fehler bei Abfrage für {date_key}: {str(e)}")
