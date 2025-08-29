@@ -107,15 +107,7 @@ def run_application(config, test_mode: bool = False) -> bool:
         else:
             success = monitor.run_daily_check()
         
-        # Startup-Benachrichtigung nur nach erfolgreicher Verbindungssuche
-        if success and not test_mode:
-            telegram.notify_startup_completed(
-                target_day=config.target_day,
-                connections_found=monitor.session_stats["connections_found"],
-                from_station=config.departure_station,
-                to_station=config.destination_station,
-                date_description=config.get_formatted_date_description()
-            )
+        # Keine automatische Startup-Benachrichtigung mehr - nur bei gefundenen Verbindungen
         
         # Session-Zusammenfassung
         summary = monitor.get_session_summary()
